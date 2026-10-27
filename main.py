@@ -21,8 +21,9 @@ def fit_web_canvas():
     if sys.platform == "emscripten":
         import platform as browser
         canvas = browser.window.canvas
+        # Keep the 3:2 game canvas fully visible in both portrait and landscape.
         canvas.style.width = "min(100vw, 150vh)"
-        canvas.style.height = "auto"
+        canvas.style.height = "min(66.6667vw, 100vh)"
         canvas.style.maxWidth = "100vw"
         canvas.style.maxHeight = "100vh"
         canvas.style.position = "fixed"
