@@ -95,6 +95,8 @@ class Game:
         self.arena = pygame.Rect(70, 112, 820, 470)
         self.stars = [(random.randrange(WIDTH), random.randrange(HEIGHT), random.choice((1, 1, 2))) for _ in range(100)]
         self.state = "title"
+        self.pointer_active = False
+        self.pointer_target = None
         self.best = 0
         self.reset()
 
@@ -124,6 +126,10 @@ class Game:
         keys = pygame.key.get_pressed()
         move = pygame.Vector2(int(keys[pygame.K_d] or keys[pygame.K_RIGHT]) - int(keys[pygame.K_a] or keys[pygame.K_LEFT]),
                               int(keys[pygame.K_s] or keys[pygame.K_DOWN]) - int(keys[pygame.K_w] or keys[pygame.K_UP]))
+        if not move.length_squared() and self.pointer_active and self.pointer_target is not None:
+            delta = self.pointer_target - self.player
+            if delta.length_squared() > 64:
+                move = delta.normalize()
         if move.length_squared():
             move = move.normalize()
         speed = 280
@@ -199,13 +205,13 @@ class Game:
         self.draw_player(t)
         if self.state == "title":
             self.overlay("TIME QUEST", "A 100-second arcade survival run", [
-                "Move with WASD or the arrow keys", "Collect gold time orbs. Dodge the pink hazards.", "You have 3 lives. The arena gets faster over time.", "PRESS ENTER OR SPACE TO PLAY"])
+                "Touch and drag to move. Keyboard: WASD / arrows", "Collect gold time orbs. Dodge the pink hazards.", "You have 3 lives. The arena gets faster over time.", "TAP ANYWHERE OR PRESS ENTER / SPACE TO PLAY"])
         elif self.state == "over":
             result = "TIME'S UP!" if self.elapsed >= ROUND_SECONDS else "RUN ENDED"
             self.overlay(result, f"Final score: {self.score}     Best this session: {self.best}", [
-                "Gold orbs are worth more as the challenge builds.", "Press R, ENTER, or SPACE to run it back", "Press ESC to quit"])
+                "Gold orbs are worth more as the challenge builds.", "Press ESC to quit", "TAP ANYWHERE OR PRESS R / ENTER / SPACE TO PLAY AGAIN"])
         else:
-            text(self.screen, "WASD / ARROWS  MOVE     •     ESC  QUIT", self.small, (94, 115, 148), (WIDTH // 2, 604), center=True)
+            text(self.screen, "DRAG TO MOVE  •  WASD / ARROWS  •  ESC TO QUIT", self.small, (94, 115, 148), (WIDTH // 2, 604), center=True)
         pygame.display.flip()
 
     async def run(self):
@@ -223,6 +229,26 @@ class Game:
                         self.start()
                     elif self.state == "over" and event.key in (pygame.K_r, pygame.K_RETURN, pygame.K_SPACE):
                         self.start()
+                elif event.type == pygame.FINGERDOWN:
+                    if self.state != "playing":
+                        self.start()
+                    self.pointer_active = True
+                    self.pointer_target = pygame.Vector2(event.x * WIDTH, event.y * HEIGHT)
+                elif event.type == pygame.FINGERMOTION and self.pointer_active:
+                    self.pointer_target = pygame.Vector2(event.x * WIDTH, event.y * HEIGHT)
+                elif event.type == pygame.FINGERUP:
+                    self.pointer_active = False
+                    self.pointer_target = None
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.state != "playing":
+                        self.start()
+                    self.pointer_active = True
+                    self.pointer_target = pygame.Vector2(event.pos)
+                elif event.type == pygame.MOUSEMOTION and self.pointer_active:
+                    self.pointer_target = pygame.Vector2(event.pos)
+                elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    self.pointer_active = False
+                    self.pointer_target = None
             self.update(dt)
             self.draw(t)
             await asyncio.sleep(0)
