@@ -98,10 +98,10 @@ class Game:
         self.pointer_active = False
         self.pointer_target = None
         self.dpad = {
-            "up": pygame.Rect(122, 470, 52, 52),
-            "left": pygame.Rect(70, 522, 52, 52),
-            "down": pygame.Rect(122, 522, 52, 52),
-            "right": pygame.Rect(174, 522, 52, 52),
+            "up": pygame.Rect(148, 444, 64, 64),
+            "left": pygame.Rect(76, 516, 64, 64),
+            "down": pygame.Rect(148, 516, 64, 64),
+            "right": pygame.Rect(220, 516, 64, 64),
         }
         self.best = 0
         self.reset()
@@ -209,20 +209,20 @@ class Game:
                  GOLD if i == len(lines) - 1 else MUTED, (WIDTH // 2, 335 + i * 34), center=True)
 
     def draw_dpad(self):
-        text(self.screen, "MOVE", self.small, MUTED, (148, 458), center=True)
+        text(self.screen, "MOVE", self.small, MUTED, (180, 434), center=True)
         arrows = {
-            "up": [(26, 12), (13, 31), (39, 31)],
-            "down": [(13, 20), (39, 20), (26, 39)],
-            "left": [(12, 26), (31, 13), (31, 39)],
-            "right": [(20, 13), (39, 26), (20, 39)],
+            "up": [(32, 13), (15, 40), (49, 40)],
+            "down": [(15, 24), (49, 24), (32, 51)],
+            "left": [(13, 32), (40, 15), (40, 49)],
+            "right": [(24, 15), (51, 32), (24, 49)],
         }
         for direction, rect in self.dpad.items():
             active = self.pointer_active and self.pointer_target is not None and rect.collidepoint(self.pointer_target)
             button = pygame.Surface(rect.size, pygame.SRCALPHA)
             fill = (35, 100, 132, 225) if active else (18, 34, 59, 205)
             border = (92, 235, 255, 245) if active else (91, 126, 164, 220)
-            pygame.draw.rect(button, fill, button.get_rect(), border_radius=13)
-            pygame.draw.rect(button, border, button.get_rect(), width=2, border_radius=13)
+            pygame.draw.rect(button, fill, button.get_rect(), border_radius=17)
+            pygame.draw.rect(button, border, button.get_rect(), width=2, border_radius=17)
             pygame.draw.polygon(button, (232, 248, 255), arrows[direction])
             self.screen.blit(button, rect.topleft)
 
