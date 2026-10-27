@@ -16,6 +16,25 @@ GOLD = (255, 204, 74)
 PINK = (255, 91, 136)
 
 
+def fit_web_canvas():
+    """Scale the browser canvas to fit the viewport without stretching it."""
+    if sys.platform == "emscripten":
+        import platform as browser
+        canvas = browser.window.canvas
+        canvas.style.width = "min(100vw, 150vh)"
+        canvas.style.height = "auto"
+        canvas.style.maxWidth = "100vw"
+        canvas.style.maxHeight = "100vh"
+        canvas.style.position = "fixed"
+        canvas.style.left = "50%"
+        canvas.style.top = "50%"
+        canvas.style.transform = "translate(-50%, -50%)"
+        canvas.style.touchAction = "none"
+        browser.document.body.style.margin = "0"
+        browser.document.body.style.overflow = "hidden"
+        browser.document.body.style.backgroundColor = "#0a1125"
+
+
 def text(surface, value, font, color, pos, center=False):
     image = font.render(str(value), True, color)
     rect = image.get_rect(center=pos) if center else image.get_rect(topleft=pos)
@@ -87,6 +106,7 @@ class Game:
         pygame.init()
         pygame.display.set_caption("TIME QUEST — Arcade Survival")
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        fit_web_canvas()
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("segoeui", 22)
         self.small = pygame.font.SysFont("segoeui", 16)
@@ -97,12 +117,6 @@ class Game:
         self.state = "title"
         self.pointer_active = False
         self.pointer_target = None
-        self.dpad = {
-            "up": pygame.Rect(148, 444, 64, 64),
-            "left": pygame.Rect(76, 516, 64, 64),
-            "down": pygame.Rect(148, 516, 64, 64),
-            "right": pygame.Rect(220, 516, 64, 64),
-        }
         self.best = 0
         self.reset()
 
@@ -133,15 +147,13 @@ class Game:
         move = pygame.Vector2(int(keys[pygame.K_d] or keys[pygame.K_RIGHT]) - int(keys[pygame.K_a] or keys[pygame.K_LEFT]),
                               int(keys[pygame.K_s] or keys[pygame.K_DOWN]) - int(keys[pygame.K_w] or keys[pygame.K_UP]))
         if not move.length_squared() and self.pointer_active and self.pointer_target is not None:
-            for direction, button in self.dpad.items():
-                if button.collidepoint(self.pointer_target):
-                    move = {
-                        "up": pygame.Vector2(0, -1),
-                        "down": pygame.Vector2(0, 1),
-                        "left": pygame.Vector2(-1, 0),
-                        "right": pygame.Vector2(1, 0),
-                    }[direction]
-                    break
+            target = pygame.Vector2(
+                max(self.arena.left + 16, min(self.arena.right - 16, self.pointer_target.x)),
+                max(self.arena.top + 16, min(self.arena.bottom - 16, self.pointer_target.y)),
+            )
+            delta = target - self.player
+            if delta.length_squared() > 64:
+                move = delta.normalize()
         if move.length_squared():
             move = move.normalize()
         speed = 280
@@ -208,23 +220,11 @@ class Game:
             text(self.screen, line, self.font if i == len(lines) - 1 else self.small,
                  GOLD if i == len(lines) - 1 else MUTED, (WIDTH // 2, 335 + i * 34), center=True)
 
-    def draw_dpad(self):
-        text(self.screen, "MOVE", self.small, MUTED, (180, 434), center=True)
-        arrows = {
-            "up": [(32, 13), (15, 40), (49, 40)],
-            "down": [(15, 24), (49, 24), (32, 51)],
-            "left": [(13, 32), (40, 15), (40, 49)],
-            "right": [(24, 15), (51, 32), (24, 49)],
-        }
-        for direction, rect in self.dpad.items():
-            active = self.pointer_active and self.pointer_target is not None and rect.collidepoint(self.pointer_target)
-            button = pygame.Surface(rect.size, pygame.SRCALPHA)
-            fill = (35, 100, 132, 225) if active else (18, 34, 59, 205)
-            border = (92, 235, 255, 245) if active else (91, 126, 164, 220)
-            pygame.draw.rect(button, fill, button.get_rect(), border_radius=17)
-            pygame.draw.rect(button, border, button.get_rect(), width=2, border_radius=17)
-            pygame.draw.polygon(button, (232, 248, 255), arrows[direction])
-            self.screen.blit(button, rect.topleft)
+    def draw_touch_target(self):
+        if self.pointer_active and self.pointer_target is not None and self.state == "playing":
+            point = (int(self.pointer_target.x), int(self.pointer_target.y))
+            pygame.draw.circle(self.screen, (113, 235, 255), point, 18, 2)
+            pygame.draw.circle(self.screen, (214, 251, 255), point, 4)
 
     def draw(self, t):
         self.draw_background()
@@ -235,14 +235,14 @@ class Game:
         self.draw_player(t)
         if self.state == "title":
             self.overlay("TIME QUEST", "A 100-second arcade survival run", [
-                "Phone: hold the on-screen arrows to move", "Computer: use WASD or the arrow keys", "Collect gold orbs. Dodge pink hazards. You have 3 lives.", "TAP ANYWHERE OR PRESS ENTER / SPACE TO PLAY"])
+                "Phone: touch and drag anywhere in the arena to steer", "Computer: use WASD or the arrow keys", "Collect gold orbs. Dodge pink hazards. You have 3 lives.", "TAP ANYWHERE OR PRESS ENTER / SPACE TO PLAY"])
         elif self.state == "over":
             result = "TIME'S UP!" if self.elapsed >= ROUND_SECONDS else "RUN ENDED"
             self.overlay(result, f"Final score: {self.score}     Best this session: {self.best}", [
                 "Gold orbs are worth more as the challenge builds.", "Press ESC to quit", "TAP ANYWHERE OR PRESS R / ENTER / SPACE TO PLAY AGAIN"])
         else:
-            self.draw_dpad()
-            text(self.screen, "HOLD ARROWS TO MOVE  •  WASD / ARROWS  •  ESC TO QUIT", self.small, (94, 115, 148), (WIDTH // 2, 604), center=True)
+            self.draw_touch_target()
+            text(self.screen, "TOUCH & DRAG TO STEER  •  WASD / ARROWS  •  ESC TO QUIT", self.small, (94, 115, 148), (WIDTH // 2, 604), center=True)
         pygame.display.flip()
 
     async def run(self):
